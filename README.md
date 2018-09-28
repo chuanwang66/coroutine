@@ -12,9 +12,17 @@ Read source for detail.
 
 Chinese blog : http://blog.codingnow.com/2012/07/c_coroutine.html
 
-### 这个库用到uthread，只支持平台：
+### 本协程库用到ucontext，只支持UNIX平台
+	- 本协程库：
+```
+#if __APPLE__ && __MACH__
+	#include <sys/ucontext.h>
+#else 
+	#include <ucontext.h>
+#endif 
+```
 	- 跨平台“蝇量级”携程库Protothreads：https://coolshell.cn/articles/10975.html
-### 协程：
+### 协程用法
 	即“用户线程”，好处在于用户级别（非内核级别）地在“主线程”和“用户线程”之间切换，比系统线程效率高。
         如果“用户线程/协程”中要做I/O操作，这样做：
 	- 协程中：先coroutine_yield()切回主线程context；
