@@ -1,6 +1,8 @@
 #ifndef C_COROUTINE_H
 #define C_COROUTINE_H
 
+//调度器 struct schedule * 在初始化时被创建；结束时销毁；期间跟着所有的函数走
+
 #define COROUTINE_DEAD 0
 #define COROUTINE_READY 1
 #define COROUTINE_RUNNING 2
