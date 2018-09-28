@@ -17,15 +17,17 @@
 
 struct coroutine;
 
+// 调度器
 struct schedule {
 	char stack[STACK_SIZE];
 	ucontext_t main;
 	int nco;
 	int cap;
 	int running;
-	struct coroutine **co;
+	struct coroutine **co;	//用户线程（协程）池
 };
 
+// 用户线程（协程）
 struct coroutine {
 	coroutine_func func;
 	void *ud;
@@ -37,6 +39,7 @@ struct coroutine {
 	char *stack;
 };
 
+// 创建用户线程（协程）
 struct coroutine * 
 _co_new(struct schedule *S , coroutine_func func, void *ud) {
 	struct coroutine * co = malloc(sizeof(*co));
@@ -56,6 +59,7 @@ _co_delete(struct coroutine *co) {
 	free(co);
 }
 
+// 创建调度器
 struct schedule * 
 coroutine_open(void) {
 	struct schedule *S = malloc(sizeof(*S));
@@ -67,6 +71,7 @@ coroutine_open(void) {
 	return S;
 }
 
+// 销毁调度器
 void 
 coroutine_close(struct schedule *S) {
 	int i;
@@ -81,10 +86,11 @@ coroutine_close(struct schedule *S) {
 	free(S);
 }
 
+// 创建用户线程（协程）：创建一个新协程，并append到协程池
 int 
 coroutine_new(struct schedule *S, coroutine_func func, void *ud) {
-	struct coroutine *co = _co_new(S, func , ud);
-	if (S->nco >= S->cap) {
+	struct coroutine *co = _co_new(S, func , ud);	// 创建一个新协程
+	if (S->nco >= S->cap) {		// 协程池扩容，append到协程池
 		int id = S->cap;
 		S->co = realloc(S->co, S->cap * 2 * sizeof(struct coroutine *));
 		memset(S->co + S->cap , 0 , sizeof(struct coroutine *) * S->cap);
@@ -92,7 +98,7 @@ coroutine_new(struct schedule *S, coroutine_func func, void *ud) {
 		S->cap *= 2;
 		++S->nco;
 		return id;
-	} else {
+	} else {			// append到协程池
 		int i;
 		for (i=0;i<S->cap;i++) {
 			int id = (i+S->nco) % S->cap;
@@ -120,6 +126,7 @@ mainfunc(uint32_t low32, uint32_t hi32) {
 	S->running = -1;
 }
 
+// “主线程”切到“协程”
 void 
 coroutine_resume(struct schedule * S, int id) {
 	assert(S->running == -1);
@@ -129,7 +136,7 @@ coroutine_resume(struct schedule * S, int id) {
 		return;
 	int status = C->status;
 	switch(status) {
-	case COROUTINE_READY:
+	case COROUTINE_READY:				// coroutine_new()后第1次coroutine_resume()切到协程：先创建主线程context，再从主线程切到协程
 		getcontext(&C->ctx);
 		C->ctx.uc_stack.ss_sp = S->stack;
 		C->ctx.uc_stack.ss_size = STACK_SIZE;
@@ -140,7 +147,7 @@ coroutine_resume(struct schedule * S, int id) {
 		makecontext(&C->ctx, (void (*)(void)) mainfunc, 2, (uint32_t)ptr, (uint32_t)(ptr>>32));
 		swapcontext(&S->main, &C->ctx);
 		break;
-	case COROUTINE_SUSPEND:
+	case COROUTINE_SUSPEND:				// coroutine_new()后第2次...第n次coroutine_resume()切到协程：直接从主线程切到协程
 		memcpy(S->stack + STACK_SIZE - C->size, C->stack, C->size);
 		S->running = id;
 		C->status = COROUTINE_RUNNING;
@@ -164,6 +171,7 @@ _save_stack(struct coroutine *C, char *top) {
 	memcpy(C->stack, &dummy, C->size);
 }
 
+// “协程”切到“主线程”
 void
 coroutine_yield(struct schedule * S) {
 	int id = S->running;
@@ -185,6 +193,7 @@ coroutine_status(struct schedule * S, int id) {
 	return S->co[id]->status;
 }
 
+// 返回：当前正在运行的协程id (coroutine_new()返回）；或 -1 如果当前正在运行主线程。
 int 
 coroutine_running(struct schedule * S) {
 	return S->running;
