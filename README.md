@@ -19,5 +19,5 @@ Chinese blog : http://blog.codingnow.com/2012/07/c_coroutine.html
         如果“用户线程/协程”中要做I/O操作，这样做：
 	- 协程中：先coroutine_yield()切回主线程context；
 	- 协程中：执行I/O操作，此时不会阻塞主线程；
-	- 协程中：执行完I/O操作后，coroutine_resume()返回继续执行协程；
+	- 协程中：执行完I/O操作后，coroutine_resume()返回继续执行协程；	（？待验证）
 	- 协程中：协程最终执行完，自动切回主线程。
